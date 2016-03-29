@@ -1,0 +1,65 @@
+{
+  "name": "meldio-client",
+  "version": "0.4.5",
+  "description": "Meldio JavaScript Client",
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "meldio.js",
+    "meldio.min.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "npm run lint && npm run check && npm run testonly",
+    "testonly": "mocha $npm_package_options_mocha",
+    "lint": "eslint src",
+    "check": "flow check",
+    "build": "babel src --optional runtime --ignore __tests__ --out-dir dist/ && cp package.json dist/",
+    "build": ". ./resources/build.sh",
+    "watch": "babel --optional runtime resources/watch.js | node",
+    "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
+    "cover:lcov": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha",
+    "preversion": ". ./resources/checkgit.sh && npm test",
+    "prepublish": ". ./resources/prepublish.sh"
+  },
+  "author": {
+    "name": "Nemanja Stanarevic",
+    "email": "nemanja@meldio.com"
+  },
+  "license": "MIT",
+  "browserify-shim": {
+  },
+  "options": {
+    "mocha": "--require resources/mocha-bootload src/**/__tests__/**/*.js -t 5000"
+  },
+  "dependencies": {
+    "babel-runtime": "^5.8.x",
+    "fbemitter": "^2.0.2",
+    "fbjs": "^0.7.2",
+    "store": "^1.3.20",
+    "winchan": "^0.1.2"
+  },
+  "devDependencies": {
+    "babel": "^5.8.x",
+    "babel-core": "^5.8.x",
+    "babel-eslint": "^4.1.7",
+    "babel-loader": "^5.4.x",
+    "eslint": "^1.10.1",
+    "eslint-plugin-babel": "^2.1.1",
+    "flow-bin": "^0.21.0",
+    "mocha": "^2.3.4",
+    "chai": "^3.2.0",
+    "chai-subset": "^1.0.1",
+    "webpack": "^1.12.2",
+    "webpack-dev-server": "^1.12.0",
+    "sane": "^1.3.0",
+    "isparta": "3.0.3",
+    "coveralls": "^2.11.8",
+    "bluebird": "^3.3.3",
+    "browserify": "13.0.0",
+    "browserify-shim": "3.8.12",
+    "uglify-js": "^2.4.24",
+    "uglifyify": "^3.0.1"
+  }
+}

@@ -1,0 +1,27 @@
+language: node_js
+node_js:
+- '4'
+- '5'
+sudo: false
+before_install:
+- npm config set spin false --global
+script:
+- npm run lint && npm run check && (if [[ "$TRAVIS_JOB_NUMBER" == *.1 ]]; then npm run cover:lcov; else npm run testonly; fi)
+after_failure:
+- (cd resources; python travis_after_all.py)
+after_success:
+- (cd resources; python travis_after_all.py)
+- export $(cat resources/.to_export_back)
+- if [[ "$TRAVIS_JOB_NUMBER" == *.1 ]]; then cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js; fi
+deploy:
+  provider: npm
+  email: nemanja@meldio.com
+  on:
+    tags: true
+    branch: master
+    condition: $BUILD_LEADER$BUILD_AGGREGATE_STATUS = YESothers_succeeded
+  api_key:
+    secure: l6CDgINlitiwYGGUc75/vCtSd8AUIhXR8Z4n6xRq1PqJ5tbMwODds6kBRc6oJQ9tc5GdOFSJzQrLdFnGrZyagZnruntVsgBq1N/rbHuQG4+k03QVm+RuJfrujPRd8tDOrhiRXzwpxKzOtIWu2qgQr/r1viF1QFyoSDDIPwiM2ER75H1Vi9dfD5mzNFrLHhmaMmOWSGcQFUvCWIpf3ICIpak2rSv6GWCzC6cBSPTh52EchF/WWbP9hb4tROs+EnZHhaJDlMnwTpSjyy6SYGe1hmKKDHi/yV4tZTzvTD2CYD+7sJm+zKSGOt/xOyx9mNDNDaF55C9bO4iYW8SEfVFI55j9O3gZcqyX9c3DqJ1XghV6Evxd0IsR2+Z6JYKPPGRiIHsdPPzQt89JOwRpZbgVLOBF5wsyQTkLZHPr+NWZXpUwdnfPga1paQrKgyo45ndt65pcOcM8ZW4EsUc01QhP6LKu3kUolxBjlA7AzX0b9+kc2tT2yjD4U3Sv+9Muc+7fb5sYbFu403F11PSLkUZXGmGvOnaigMn9kjJgXV/CJVvQYvZLfX/puZTO/L8/QPZnUhTLgqd3t36Oq02PGlA9ybslx+M4Q1B6RuavnJV4v9T/NjzI66zJsdzzNa/8kW/99llAJ2g/7jknAS5p9VJZ2Xei23IHvg7RQiohkNSb7II=
+notifications:
+  slack:
+    secure: cm9DjRjFQuqfi4+9KJxrsrz1zweSLoqj6t+IBHu921eK+2MjBgz9iO2P8S67XZD1p3YaDMmWJv9W/2bMi8h3RRLPv+ISbR+0BwIoRGLHmnDoSZQw+ofsoDMjdBVhmdc83KcOYmtlvXm2JSGZGUOL82t6duCKq3sqZ+awWVq07YUGmgN+gC2bSJvk2DyPZYKkRXqyNi2xZztNlZaUhxofTI6YVAuy6AuQNM+GCld7JejPPca6sTJAHVcppbR900Cj058pRUYtprbLOd57nuj6bqpPoTHFHA+LQjNWQdsjz+czHiiMjKpzwt7kEI1nl5j7zxtQ4Q8o/v53dyHJu+o0DkDiKdSPT6eMEanF7QSy56OQjnHjTh+btAEPRFU/W5F6EW3rQZVtex4YxYEMFSYy0EfDGUgsBvc/+xryMpmhAlXwOyD0lFrMUVYjNvL7RuFuj71E/ana8Rr+zwMkkFiZdvDDTfvyFxO56/grYbmXQA0ORZkXavTBORpcPkeNwYxZ0JwayIBMlhbAPPx1tlQLX6gKZlRkGwojGPJISoNyAntVKQCSke3KyqLV6UorG025W2PO94inv0p3i084NNFz1ThM0f9MPhz7+xWsEZiU0FmhrhWKB+15qynkfuyzTN1tZnuMhJ04VOurMi6QJsq9uA1mmjp4qYaw3NpNVt4jWTI=

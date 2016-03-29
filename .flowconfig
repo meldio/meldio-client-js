@@ -1,0 +1,15 @@
+[ignore]
+.*/lib/.*
+.*/dist/.*
+.*/coverage/.*
+.*/data/.*
+.*/docs/.*
+.*/instances/.*
+.*/node_modules/.*
+.*/resources/.*
+
+[include]
+
+[libs]
+
+[options]
