@@ -327,7 +327,7 @@ var Meldio = (function (_EventEmitter) {
       return _regeneratorRuntime.async(function graphql$(context$2$0) {
         while (1) switch (context$2$0.prev = context$2$0.next) {
           case 0:
-            invariant(typeof params === 'string' || typeof params === 'object' && typeof params.query === 'string' && (!params.variables || typeof params.variables === 'object'), 'INVALID_PARAMS', 'graphql expects a string or object with query and variables.');
+            invariant(typeof params === 'string' || typeof params === 'object' && typeof params.query === 'string' && (!params.variables || typeof params.variables === 'object' || typeof params.variables === 'string'), 'INVALID_PARAMS', 'graphql expects a string or object with query and variables.');
             url = this.url + '/graphql';
             body = typeof params === 'string' ? JSON.stringify({ query: params }) : JSON.stringify(params);
             init = _extends({

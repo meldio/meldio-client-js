@@ -219,7 +219,9 @@ class Meldio extends EventEmitter {
        typeof params === 'string' ||
        typeof params === 'object' &&
        typeof params.query === 'string' &&
-       ( !params.variables || typeof params.variables === 'object'),
+       ( !params.variables ||
+          typeof params.variables === 'object' ||
+          typeof params.variables === 'string'),
       `INVALID_PARAMS`,
       `graphql expects a string or object with query and variables.`);
     const url = `${this.url}/graphql`;
