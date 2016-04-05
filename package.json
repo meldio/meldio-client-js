@@ -1,6 +1,6 @@
 {
   "name": "meldio-client",
-  "version": "0.4.10",
+  "version": "0.4.12",
   "description": "Meldio JavaScript Client",
   "main": "dist/index.js",
   "files": [

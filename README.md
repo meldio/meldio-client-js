@@ -48,7 +48,7 @@ like this:
 #### Include with HTML Script tag
 Meldio client is hosted on JSDelivr CDN, so you can also include it with:
 ```html
-<script src="https://cdn.jsdelivr.net/meldio.client.js/0.4.10/meldio.min.js"></script>
+<script src="https://cdn.jsdelivr.net/meldio.client.js/0.4.12/meldio.min.js"></script>
 ```
 
 
