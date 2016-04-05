@@ -26,16 +26,52 @@ function invariant(condition, code, message) {
   }
 }
 
-class Meldio extends EventEmitter {
+/**
+ * Meldio class allows client applications to authenticate with the Meldio
+ * server, configure instances of Relay framework to work with the Meldio server
+ * and execute GraphQL queries and mutations.
+ * @example
+ * // without Relay:
+ * import Meldio from 'meldio-client';
+ * const meldio = new Meldio('http://localhost:9000');
+ * export default meldio;
+ * @example
+ * // with Relay:
+ * import Meldio from 'meldio-client';
+ * import Relay from 'react-relay';
+ * const meldio = new Meldio('http://localhost:9000');
+ * meldio.injectNetworkLayerInto(Relay);
+ * export default meldio;
+ */
+export default class Meldio extends EventEmitter {
+  /**
+   * Creates a new Meldio client object.
+   * @param {string} url -
+   *   root url of the Meldio server, e.g. http://localhost:9000
+   * @param {Object} [options={}] - configuration options
+   * @param {string} [options.authUrl] -
+   *   Authentication server url, if different than the Meldio server url
+   * @param {string} [options.accessToken] -
+   *   Used to initialize Meldio client with an existing access token
+   * @param {boolean|Object} [options.retry] -
+   *   If the parameter is true, Meldio client will be
+   *   initialized with the default timeout (5000 ms) and retry delays
+   *   (1000, 3000 and 5000 ms).
+   *   If the value is an object, Meldio client will be
+   *   initialized with the provided fetchTimeout and relayDelays array if they
+   *   are provided or with the default values if they are not provided.
+   *   Otherwise, Meldio client will be initialized with the default fetch
+   *   timeout of 5000 ms and no retries.
+   */
   constructor(url, options = { }) {
     super();
-    this.url = url;
-    this.authUrl = options.authUrl || this.url;
-    this.accessToken = options.accessToken || (
+    this._url = url;
+    this._authUrl = options.authUrl || this._url;
+    this._accessToken = options.accessToken || (
       store.enabled && store.get(ACCESS_TOKEN) ?
         store.get(ACCESS_TOKEN) :
         null );
-    this.retrySpec =
+    this._retrySpec =
       options.retry === true ?
         DEFAULT_RETRY_SPEC :
       typeof options.retry === 'object' ?
@@ -49,11 +85,11 @@ class Meldio extends EventEmitter {
           fetchTimeout: DEFAULT_RETRY_SPEC.fetchTimeout,
           retryDelays: [ ],
         };
-    this.networkLayer = null;
+    this._networkLayer = null;
   }
 
-  setAccessToken(accessToken) {
-    this.accessToken = accessToken;
+  _setAccessToken(accessToken) {
+    this._accessToken = accessToken;
     if (store.enabled) {
       if (accessToken) {
         store.set(ACCESS_TOKEN, accessToken);
@@ -61,27 +97,45 @@ class Meldio extends EventEmitter {
         store.remove(ACCESS_TOKEN);
       }
     }
-    if (this.networkLayer) {
-      this.networkLayer._init.headers = accessToken ?
+    if (this._networkLayer) {
+      this._networkLayer._init.headers = accessToken ?
         { Authorization: `Bearer ${accessToken}` } :
         { };
     }
   }
 
-  clearAccessToken() {
-    this.accessToken = null;
+  _clearAccessToken() {
+    this._accessToken = null;
     if (store.enabled) {
       store.remove(ACCESS_TOKEN);
     }
-    if (this.networkLayer) {
-      this.networkLayer._init.headers = { };
+    if (this._networkLayer) {
+      this._networkLayer._init.headers = { };
     }
   }
 
+  /**
+   * Checks if the access token is set and returns true if it is and false
+   * otherwise.
+   * @returns {Boolean} true if access token is set, false otherwise
+   */
   isLoggedIn() {
-    return Boolean(this.accessToken);
+    return Boolean(this._accessToken);
   }
 
+  /**
+   * Initiates OAuth popup authentication flow with the specified provider. This
+   * method is limited to the browser environment.  For all other use cases
+   * (e.g. server or mobile) use loginWithAccessToken instead.
+   * @param {string} provider -
+   *   Provider to authenticate with. Can be either 'facebook',
+   *   'google' or 'github'.
+   * @return {Promise<string, Error>} Resolves to Meldio access token string if
+   *   authentication is successful. Resolves to Error if method is invoked
+   *   from outside the browser environment, provider parameter is not valid or
+   *   if authentication has failed.
+   * @emits Meldio#login
+   */
   async loginWithOAuthPopup(provider) {
     invariant(ExecutionEnvironment.canUseDOM,
       `BROWSER_ONLY`,
@@ -91,8 +145,8 @@ class Meldio extends EventEmitter {
       `Provider passed to Meldio.loginWithOAuthPopup must be one of: ` +
         SUPPORTED_PROVIDERS);
 
-    const url = `${this.authUrl}/auth/${provider}`;
-    const relayUrl = `${this.authUrl}/auth/relay`;
+    const url = `${this._authUrl}/auth/${provider}`;
+    const relayUrl = `${this._authUrl}/auth/relay`;
     const windowFeatures = PROVIDER_FEATURES[provider];
 
     return new Promise( (resolve, reject) => {
@@ -106,7 +160,7 @@ class Meldio extends EventEmitter {
         } else if (response.error) {
           reject(response.error);
         } else {
-          this.setAccessToken(response.accessToken);
+          this._setAccessToken(response.accessToken);
           this.emit('login', response.accessToken);
           resolve(response.accessToken);
         }
@@ -114,13 +168,26 @@ class Meldio extends EventEmitter {
     });
   }
 
+  /**
+   * Initiates OAuth authentication process with the specified provider using
+   * an access token issued by that provider.
+   * @param {string} provider -
+   *   Provider to authenticate with. Can be either 'facebook',
+   *   'google' or 'github'.
+   * @param {string} accessToken -
+   *   Access token previousely issued by the specified authentication provider.
+   * @return {Promise<string, Error>} Resolves to Meldio access token string if
+   *   authentication is successful. Resolves to Error if authentication has
+   *   failed.
+   * @emits Meldio#login
+   */
   async loginWithAccessToken(provider, accessToken) {
     invariant(PROVIDER_FEATURES[provider],
       `UNSUPPORTED_PROVIDER`,
       `Provider passed to Meldio.loginWithAccessToken must be one of: ` +
         SUPPORTED_PROVIDERS);
 
-    const url = `${this.authUrl}/auth/${provider}`;
+    const url = `${this._authUrl}/auth/${provider}`;
     const init = {
       method: 'POST',
       body: JSON.stringify({
@@ -130,26 +197,37 @@ class Meldio extends EventEmitter {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      ...this.retrySpec,
+      ...this._retrySpec,
     };
     const response = await fetchWithRetries(url, init);
     const content = await response.json();
-
-    if (content && content.accessToken) {
-      this.setAccessToken(content.accessToken);
-      this.emit('login', content.accessToken);
-      return content.accessToken;
-    }
 
     if (content && content.error) {
       const error = new Error(content.error.message);
       error.code = content.error.code;
       throw error;
+    } else if (!content || !content.accessToken) {
+      const error = new Error('Authentication failed. Missing access token.');
+      error.code = 'NO_ACCESS_TOKEN';
+      throw error;
     }
 
-    throw new Error('Authentication failed.');
+    this._setAccessToken(content.accessToken);
+    this.emit('login', content.accessToken);
+    return content.accessToken;
   }
 
+  /**
+   * Authenticates with the Meldio server using a loginId and password.
+   * @param {string} loginId -
+   *   Application-specific loginId (e.g. email, phone number, user handle).
+   * @param {string} password -
+   *   Password assigned to the user.
+   * @return {Promise<string, Error>} Resolves to Meldio access token string if
+   *   authentication is successful. Resolves to Error if authentication has
+   *   failed.
+   * @emits Meldio#login
+   */
   async loginWithPassword(loginId, password) {
     invariant(loginId && typeof loginId === 'string',
       `LOGIN_REQUIRED`,
@@ -158,7 +236,7 @@ class Meldio extends EventEmitter {
       `PASSWORD_REQUIRED`,
       `password string must be passed to Meldio.loginWithPassword`);
 
-    const url = `${this.authUrl}/auth/password`;
+    const url = `${this._authUrl}/auth/password`;
     const init = {
       method: 'POST',
       body: JSON.stringify({ loginId, password }),
@@ -166,39 +244,45 @@ class Meldio extends EventEmitter {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      ...this.retrySpec,
+      ...this._retrySpec,
     };
     const response = await fetchWithRetries(url, init);
     const content = await response.json();
-
-    if (content && content.accessToken) {
-      this.setAccessToken(content.accessToken);
-      this.emit('login', content.accessToken);
-      return content.accessToken;
-    }
 
     if (content && content.error) {
       const error = new Error(content.error.message);
       error.code = content.error.code;
       throw error;
+    } else if (!content || !content.accessToken) {
+      const error = new Error('Authentication failed. Missing access token.');
+      error.code = 'NO_ACCESS_TOKEN';
+      throw error;
     }
 
-    throw new Error('Authentication failed.');
+    this._setAccessToken(content.accessToken);
+    this.emit('login', content.accessToken);
+    return content.accessToken;
   }
 
+  /**
+   * Terminates the authenticated session with the Meldio server and clears
+   * the access token.
+   * @return {Promise<void, Error>} Resolves to Error if logout has failed.
+   * @emits Meldio#logout
+   */
   async logout() {
     if (this.isLoggedIn()) {
-      const url = `${this.authUrl}/auth/logout`;
+      const url = `${this._authUrl}/auth/logout`;
       const init = {
         method: 'POST',
         body: JSON.stringify({
-          'access_token': this.accessToken  // eslint-disable-line quote-props
+          'access_token': this._accessToken  // eslint-disable-line quote-props
         }),
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
-        ...this.retrySpec,
+        ...this._retrySpec,
       };
       const response = await fetchWithRetries(url, init);
       const content = await response.json();
@@ -207,13 +291,24 @@ class Meldio extends EventEmitter {
         console.error(`${content.error.code}: ${content.error.message}`);
       }
 
-      this.clearAccessToken();
+      this._clearAccessToken();
       this.emit('logout');
-      return;
     }
   }
 
-  // params = string or { query, variables }
+  /**
+  * Executes a GraphQL query or mutation.  Query can be provided as string or
+  * an object with "query" and "variables" properties.
+  * @param {string|Object} params -
+  *   String that contains GraphQL query or an object with "query" and
+  *   "variables" properties
+  * @param {string} params.query - Query string containing GraphQL query or
+  *   mutation
+  * @param {string|Object} params.variables - Object or JSON string
+  *   representation of variable names and values referenced in the query
+  * @return {Promise<Object, Error>} Resolves to an object with result set if
+  *   operation is successful. Resolves to Error if operation has failed.
+  */
   async graphql(params) {
     invariant(
        typeof params === 'string' ||
@@ -224,7 +319,7 @@ class Meldio extends EventEmitter {
           typeof params.variables === 'string'),
       `INVALID_PARAMS`,
       `graphql expects a string or object with query and variables.`);
-    const url = `${this.url}/graphql`;
+    const url = `${this._url}/graphql`;
     const body = typeof params === 'string' ?
       JSON.stringify({ query: params }) :
       JSON.stringify(params);
@@ -234,11 +329,11 @@ class Meldio extends EventEmitter {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        ...this.accessToken ?
-          { Authorization: `Bearer ${this.accessToken}`, } :
+        ...this._accessToken ?
+          { Authorization: `Bearer ${this._accessToken}`, } :
           { },
       },
-      ...this.retrySpec,
+      ...this._retrySpec,
     };
 
     let response;
@@ -258,21 +353,28 @@ class Meldio extends EventEmitter {
         content.errors[0].code === 'INVALID_TOKEN') {
       content.errors.forEach(err =>
         console.error(`${err.code || 'ERROR'}: ${err.message}`));
-      this.clearAccessToken();
+      this._clearAccessToken();
       this.emit('logout');
     }
 
     return content;
   }
 
+  /**
+   * Configures an instance of Relay framework to work with Meldio.
+   * @param {Relay} Relay - Relay framework instance
+   * @example
+   * import Meldio from 'meldio-client';
+   * import Relay from 'react-relay';
+   * const meldio = new Meldio('http://localhost:9000');
+   * meldio.injectNetworkLayerInto(Relay);
+   */
   injectNetworkLayerInto(Relay) {
-    this.networkLayer = new Relay.DefaultNetworkLayer(`${this.url}/graphql`, {
-      headers: this.accessToken ?
-        { Authorization: `Bearer ${this.accessToken}`, } :
+    this._networkLayer = new Relay.DefaultNetworkLayer(`${this._url}/graphql`, {
+      headers: this._accessToken ?
+        { Authorization: `Bearer ${this._accessToken}`, } :
         { },
     });
-    Relay.injectNetworkLayer(this.networkLayer);
+    Relay.injectNetworkLayer(this._networkLayer);
   }
 }
-
-module.exports = Meldio;
